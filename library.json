@@ -1,0 +1,27 @@
+{
+    "name": "FeebleESPWSClient",
+    "keywords": "communication, websocket, client",
+    "description": "Arduino library that implements parts of the WebSocket client protocol for ESP8266 and ESP32 microcontrollers.",
+    "homepage": "https://github.com/jukkas/FeebleESPWSClient",
+    "repository":
+    {
+      "type": "git",
+      "url": "https://github.com/jukkas/FeebleESPWSClient.git"
+    },
+    "dependencies":
+    [
+    ],
+    "frameworks": "arduino",
+    "platforms":
+    [
+      "espressif8266",
+      "espressif32"
+    ],
+    "authors":
+    {
+        "name": "jukkas@gmail.com",
+        "email": "jukkas@gmail.com"
+    },
+    "version": "1.0.0",
+    "license": "0BSD"
+}
