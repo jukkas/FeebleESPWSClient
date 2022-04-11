@@ -134,10 +134,8 @@ int Fwsc::connect(const char *host, uint16_t port, const char *url) {
     tryReconnect = true;
     wsReconnectInterval = initialWsReconnectInterval;
 
-#ifdef wificlientbearssl_h
-    _client.setInsecure();
-#endif
-    _client.setNoDelay(true);
+    _client.setInsecure();  // Do not verify server certificate
+
     if (!_client.connect(host, port)) {
         Serial.printf_P(PSTR("fwsc:TLS connection to %s:%d failed:"), host, port);
         tryReconnect = false;
