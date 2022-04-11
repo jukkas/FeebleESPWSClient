@@ -1,24 +1,23 @@
-#include <Arduino.h>
+#include "fwsc.h"
 
-#include <cstdio>
-#include <cstring>
-#include <cstdlib>
+#include <Arduino.h>
 #include <unistd.h>
 
-#include "fwsc.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 /* Decodes WS message. Returns amount of parsed bytes */
 int Fwsc::parse_ws_message(const uint8_t *data, int len) {
-
-    static int incompleteRemaining = 0; // If WS text frame comes in multiple read():s, how many bytes still expected
+    static int incompleteRemaining = 0;  // If WS text frame comes in multiple read():s, how many bytes still expected
     /* If last Client.read did not return full WS text frame, lets assume this next one is rest of it.
         TODO/FIXME: is that assumption always true? */
-    if (incompleteRemaining>0) {
-        int lastMsgLen = strnlen((char *)_buffer, FWSCBUFLEN-len-1);
-        //Serial.printf_P(PSTR("@incompleteRemaining=%d, len=%d lastMsgLen=%d\n"), incompleteRemaining, len, lastMsgLen);
+    if (incompleteRemaining > 0) {
+        int lastMsgLen = strnlen((char *)_buffer, FWSCBUFLEN - len - 1);
+        // Serial.printf_P(PSTR("@incompleteRemaining=%d, len=%d lastMsgLen=%d\n"), incompleteRemaining, len, lastMsgLen);
         Serial.printf_P(PSTR(" f:%d/%d\n"), lastMsgLen, len);
-        memcpy(_buffer+lastMsgLen, data, len);
-        _buffer[lastMsgLen+len] = 0;
+        memcpy(_buffer + lastMsgLen, data, len);
+        _buffer[lastMsgLen + len] = 0;
         incompleteRemaining -= len;
         if (incompleteRemaining < 1) {
             callCallback(WSEvent::text, _buffer);
@@ -33,7 +32,7 @@ int Fwsc::parse_ws_message(const uint8_t *data, int len) {
     _buffer[0] = 0;
 
     /* Most frame types can be handled before decoding rest */
-    if (opcode == 0x08) { // connection close
+    if (opcode == 0x08) {  // connection close
         _client.stop();
         isConnected = false;
         callCallback(WSEvent::disconnected, _buffer);
@@ -41,7 +40,7 @@ int Fwsc::parse_ws_message(const uint8_t *data, int len) {
         return len;
     }
 
-    if (opcode != 0x01 && opcode != 0x09) { // Not supported / do not care
+    if (opcode != 0x01 && opcode != 0x09) {  // Not supported / do not care
         Serial.printf_P(PSTR("fwsc: not supported / do not care (opcode %02x)\n"), opcode);
         return len;
     }
@@ -57,25 +56,25 @@ int Fwsc::parse_ws_message(const uint8_t *data, int len) {
     if (payload_length > 125) {
         uint16_t ext_len = ((uint16_t)p[0] << 8) | p[1];
         payload_length = ext_len;
-        p += 2;  
+        p += 2;
     }
 
-    int msgLen = p-data+payload_length; // Actual amount of bytes handled: headers+payload
-    if (msgLen > len) { // WS text longer than what we received
-        incompleteRemaining = msgLen-len;
-        int charcount = len-(p-data);
-        Serial.printf_P(PSTR("F:%d/%d "), charcount, msgLen-len);
+    int msgLen = p - data + payload_length;  // Actual amount of bytes handled: headers+payload
+    if (msgLen > len) {                      // WS text longer than what we received
+        incompleteRemaining = msgLen - len;
+        int charcount = len - (p - data);
+        Serial.printf_P(PSTR("F:%d/%d "), charcount, msgLen - len);
         memcpy(_buffer, p, charcount);
         _buffer[charcount] = 0;
         return len;
     }
 
-    if (opcode == 0x9) { // ping (FIXME: this is not robust. Assumes len<126)
-        memcpy(_buffer+4, data, msgLen);
-        _buffer[0] = (data[0] & 0b11110000) | 0x0a; // Make opcode "pong"
-        _buffer[1] = data[1] | 0x80; // len+MASK
-        memset(_buffer+2, 0, 4);
-        _client.write(_buffer, msgLen+4);
+    if (opcode == 0x9) {  // ping (FIXME: this is not robust. Assumes len<126)
+        memcpy(_buffer + 4, data, msgLen);
+        _buffer[0] = (data[0] & 0b11110000) | 0x0a;  // Make opcode "pong"
+        _buffer[1] = data[1] | 0x80;                 // len+MASK
+        memset(_buffer + 2, 0, 4);
+        _client.write(_buffer, msgLen + 4);
         Serial.printf(".");
         return msgLen;
     }
@@ -90,11 +89,11 @@ int Fwsc::parse_ws_message(const uint8_t *data, int len) {
 // Encode text frame
 static size_t encode_ws_message(uint8_t *buf, const char *text) {
     unsigned int len = strlen(text);
-    buf[0] = 0b10000001; // Final fragment, opcode:'text frame'
-    uint8_t *p = buf+2;
+    buf[0] = 0b10000001;  // Final fragment, opcode:'text frame'
+    uint8_t *p = buf + 2;
     size_t ret_len = len + 2;
     if (len < 126) {
-        buf[1] = 0x80 | len; // MASK bit and text length;
+        buf[1] = 0x80 | len;  // MASK bit and text length;
     } else {
         buf[1] = 0x80 | 126;
         buf[2] = len >> 8;
@@ -117,16 +116,15 @@ static size_t encode_ws_message(uint8_t *buf, const char *text) {
     return ret_len;
 }
 
-void Fwsc::callCallback(WSEvent type, uint8_t * payload) {
+void Fwsc::callCallback(WSEvent type, uint8_t *payload) {
     if (callback) {
         callback(type, payload);
     }
 }
 
-// Ćreate WS connection to TLS server/URL implementing WS service
-int Fwsc::connect(const char * host, uint16_t port, const char * url) {
-
-    //Serial.printf_P(PSTR("fwsc:TLS connecting to %s:%d%s ...\n"), host, port, url);
+// Create WS connection to TLS server/URL implementing WS service
+int Fwsc::connect(const char *host, uint16_t port, const char *url) {
+    // Serial.printf_P(PSTR("fwsc:TLS connecting to %s:%d%s ...\n"), host, port, url);
 
     // Save for reconnect
     _host = host;
@@ -147,7 +145,7 @@ int Fwsc::connect(const char * host, uint16_t port, const char * url) {
     }
     Serial.printf_P(PSTR("WS:TLS connected to server!\n"));
 
-    int valread; 
+    int valread;
     char buf[1024];
     sprintf_P(buf, PSTR("GET %s HTTP/1.1\r\n"
                         "Host: %s\r\n"
@@ -155,21 +153,21 @@ int Fwsc::connect(const char * host, uint16_t port, const char * url) {
                         "Connection: Upgrade\r\n"
                         "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
                         "Sec-WebSocket-Version: 13\r\n"),
-            url, host);
+              url, host);
     if (_extraHeader != nullptr) {
         strcat(buf, _extraHeader);
         strcat_P(buf, PSTR("\r\n"));
     }
     strcat_P(buf, PSTR("\r\n"));
 
-    //Serial.println(buf);
+    // Serial.println(buf);
 
-    _client.write((uint8_t*)buf , strlen(buf));
+    _client.write((uint8_t *)buf, strlen(buf));
     _client.flush();
 
-    valread = _client.readBytes((uint8_t*)buf, sizeof(buf));
-    buf[valread > 0 ? valread:0] = 0; 
-    //Serial.printf("DEBUG::fwsc: Got: %d bytes ------\n%s\n------\n", valread, buf);
+    valread = _client.readBytes((uint8_t *)buf, sizeof(buf));
+    buf[valread > 0 ? valread : 0] = 0;
+    // Serial.printf("DEBUG::fwsc: Got: %d bytes ------\n%s\n------\n", valread, buf);
 
     // Check status code
     if (!strstr(buf, " 101 ")) {
@@ -184,19 +182,17 @@ int Fwsc::connect(const char * host, uint16_t port, const char * url) {
 
     // Check if HTTP body happens to contain websocket message
     char *p = strstr(buf, "\r\n\r\n");
-    if (!p) return 1; // This should not happen
-    if (buf+valread > p+4+1) { // we have at least 1 byte body
-        //Serial.printf_P(PSTR("DEBUG::fwsc: %d bytes in body\n"), buf+valread-p-4);
-        parse_ws_message((uint8_t*)p+4, buf+valread-p-4);
+    if (!p) return 1;                 // This should not happen
+    if (buf + valread > p + 4 + 1) {  // we have at least 1 byte body
+        // Serial.printf_P(PSTR("DEBUG::fwsc: %d bytes in body\n"), buf+valread-p-4);
+        parse_ws_message((uint8_t *)p + 4, buf + valread - p - 4);
     }
-
 
     return 1;
 }
 
 // Call this in main loop. Handles incoming WS frames. Handles reconnects
 void Fwsc::loop(void) {
-
     if (!_client.connected()) {
         if (isConnected) {
             isConnected = false;
@@ -207,7 +203,7 @@ void Fwsc::loop(void) {
         if (tryReconnect && (millis() - wsLastDisconnect) > wsReconnectInterval) {
             wsLastDisconnect = millis();
             wsReconnectInterval += initialWsReconnectInterval;
-            connect(_host, _port, _url); 
+            connect(_host, _port, _url);
         }
 
         return;
@@ -226,7 +222,7 @@ void Fwsc::loop(void) {
 }
 
 // Send text to server
-bool Fwsc::sendtxt(const char * payload) {
+bool Fwsc::sendtxt(const char *payload) {
     // FIXME: check size
     size_t len = encode_ws_message(_buffer, payload);
     _client.write(_buffer, len);
@@ -235,7 +231,7 @@ bool Fwsc::sendtxt(const char * payload) {
 
 // Disconnect WS connection
 void Fwsc::disconnect() {
-    //Serial.printf_P(PSTR("DEBUG::fwsc: Sending WS disconnect message\n"));
+    // Serial.printf_P(PSTR("DEBUG::fwsc: Sending WS disconnect message\n"));
     uint8_t buf[2];
     buf[0] = 0b10001000;
     buf[1] = 0;
